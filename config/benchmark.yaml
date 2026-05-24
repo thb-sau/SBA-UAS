@@ -1,13 +1,19 @@
 defaults:
-  - agent: roaming
+  - agent: ppo
+  - agent/ppo/policy: xtma_beta
+  - agent/ppo/training: ppo
+  - agent/ppo/obs_configs: birdview
   - test_suites: nocrash_dense
 actors:
   hero:
-    agent: roaming
+    agent: ppo
     reward:
       entry_point: reward.valeo_action:ValeoAction
     terminal:
       entry_point: terminal.leaderboard:Leaderboard
+agent:
+  ppo:
+    ckpt: checkpoints/roach_rl/ckpt/ckpt_11833344.pth
 carla_sh_path: null
 log_level: INFO
 host: localhost

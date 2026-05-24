@@ -3,8 +3,21 @@ import numpy as np
 from omegaconf import OmegaConf
 import wandb
 import copy
+from pathlib import Path
 
 from carla_gym.utils.config_utils import load_entry_point
+
+
+def _resolve_local_path(path):
+    path = Path(str(path))
+    if path.is_absolute():
+        return path
+
+    try:
+        from hydra.utils import get_original_cwd
+        return Path(get_original_cwd()) / path
+    except Exception:
+        return Path.cwd() / path
 
 
 class RlBirdviewAgent():
@@ -16,9 +29,16 @@ class RlBirdviewAgent():
 
     def setup(self, path_to_conf_file):
         cfg = OmegaConf.load(path_to_conf_file)
+        local_ckpt = cfg.get('ckpt', None)
 
-        # load checkpoint from wandb
-        if cfg.wb_run_path is not None:
+        # Prefer a local checkpoint when provided; otherwise fall back to W&B.
+        if local_ckpt is not None:
+            ckpt_path = _resolve_local_path(local_ckpt)
+            if not ckpt_path.exists():
+                raise FileNotFoundError(f'Local RL checkpoint not found: {ckpt_path}')
+            self._logger.info(f'Loading local checkpoint: {ckpt_path}')
+            self._ckpt = ckpt_path.as_posix()
+        elif cfg.wb_run_path is not None:
             api = wandb.Api()
             run = api.run(cfg.wb_run_path)
             all_ckpts = [f for f in run.files() if 'ckpt' in f.name]

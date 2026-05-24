@@ -1,6 +1,7 @@
 # @package _group_
 ppo:
   entry_point: agents.rl_birdview.rl_birdview_agent:RlBirdviewAgent
+  ckpt: null
   wb_run_path: null
   wb_ckpt_step: null
   env_wrapper:

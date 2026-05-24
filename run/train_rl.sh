@@ -2,6 +2,7 @@
 
 train_rl () {
   python -u train_rl.py \
+  agent.ppo.ckpt=null \
   agent.ppo.wb_run_path=null \
   wb_project=train_rl_experts wb_name=roach \
   agent/ppo/policy=xtma_beta \

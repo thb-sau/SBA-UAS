@@ -6,6 +6,7 @@ __pycache__/
 logs/
 outputs/
 wandb/
+checkpoints/
 *.pyc
 
 .vscode/settings.json

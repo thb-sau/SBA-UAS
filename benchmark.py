@@ -221,4 +221,4 @@ def main(cfg: DictConfig):
 
 if __name__ == '__main__':
     main()
-    log.info("data_collect.py DONE!")
+    log.info("benchmark.py DONE!")
