@@ -1,0 +1,60 @@
+# SBA-UAS training scaffold.
+# CARLA-Roach remains read-only; reuse its env, wrapper, reward, terminal, and policy contracts.
+
+base_roach_config: carla-roach/config/train_rl.yaml
+policy_contract: configs/sba_uas/policy_compatibility.yaml
+
+runtime:
+  carla_version_recommended_for_rl: "0.9.10.1"
+  linux_required: true
+  pythonpath:
+    - src
+    - carla-roach
+
+sba_uas:
+  trainer:
+    entry_point: sba_uas.training.trainer:RoachCompatibleSBAUASTrainer
+    reproduction_mode: roach_compatible_sidecar
+    actor_policy_structure: unmodified_roach_ppo_policy
+    standard_buffer_capacity: 4096
+    familiar_buffer_capacity: 4096
+    batch_size: 32
+    environment_batch_size: 32
+    reference_batch_size: 32
+    warmup_transitions: 256
+    updates_per_env_step: 1
+    discount: 0.99
+    checkpoint:
+      policy_path: checkpoints/policy.pth
+      extra_state_path: checkpoints/sba_uas_extra_state.pth
+  actor_policy:
+    source: carla-roach
+    structure_must_match_roach: true
+    checkpoint_format: roach_policy_checkpoint
+  critic:
+    san:
+      enabled: true
+      gated_layers: 6
+      units_per_layer: 2048
+      shared_hidden_units: 1024
+      target_activation_ratio: 0.2
+    gated_q_network:
+      enabled: true
+      double_q: true
+  stabilization:
+    bnn_environment_model:
+      enabled: true
+      input_contract: roach_birdview_masks_and_state
+      bev_shape: [15, 192, 192]
+      action_dim: 2
+      measurement_dim: 6
+      latent_dim: 256
+      base_channels: 32
+      transition_hidden_dims: [512, 512]
+      monte_carlo_samples: 64
+    familiar_experience_buffer:
+      enabled: true
+      selection_metric: shifted_vas
+    reward_parameter_correlation:
+      enabled: true
+      damping: 1.0e-8

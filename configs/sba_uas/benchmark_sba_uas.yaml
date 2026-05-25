@@ -1,0 +1,21 @@
+# SBA-UAS benchmark scaffold.
+
+base_roach_config: carla-roach/config/benchmark.yaml
+policy_contract: configs/sba_uas/policy_compatibility.yaml
+
+benchmark:
+  carla_version: "0.9.11"
+  suites:
+    - leaderboard_town01_to_town06
+    - nocrash_dense
+  metrics:
+    - route_completion
+    - infraction_score
+    - driving_score
+    - average_performance
+    - average_forgetting
+    - forward_transfer
+
+checkpoint:
+  policy_file_must_load_with_roach: true
+  sba_uas_extra_state_file: checkpoints/sba_uas_extra_state.pth

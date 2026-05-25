@@ -1,0 +1,9 @@
+Metadata-Version: 1.2
+Name: sba-uas-reproduction
+Version: 0.1.0
+Summary: SBA-UAS reproduction scaffold built around a read-only CARLA-Roach baseline.
+Home-page: UNKNOWN
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Requires-Python: >=3.7,<3.8

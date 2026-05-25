@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+
+# Local IDE/runtime files
+.vscode/
+.idea/
+
+# CARLA/RL runtime output
+outputs/*
+!outputs/.gitkeep
+experiments/*
+!experiments/.gitkeep
+logs/
+wandb/
+diagnostics/
+agents_log/
+videos/
+
+# Large local assets
+checkpoints/*
+!checkpoints/.gitkeep
+datasets/*
+!datasets/.gitkeep
+
+# Temporary files
+tmp/
+*.log
