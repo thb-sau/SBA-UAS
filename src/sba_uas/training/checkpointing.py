@@ -20,6 +20,8 @@ def save_roach_policy_checkpoint(
         raise TypeError("policy must expose get_init_kwargs()")
 
     get_init_kwargs = getattr(policy, "get_init_kwargs")
+    # Roach PpoPolicy.load() expects this compact contract. Keep all SBA-UAS
+    # sidecar state out of this file so upstream evaluation can still load it.
     payload = {
         "policy_state_dict": policy.state_dict(),
         "policy_init_kwargs": get_init_kwargs(),
@@ -48,6 +50,8 @@ def save_sba_uas_extra_state(
 ) -> Dict[str, Any]:
     """Save SBA-UAS state that must not be mixed into Roach policy files."""
 
+    # The section names mirror the restore paths in trainer.load_extra_state().
+    # That makes partial checkpoints possible while keeping the payload readable.
     payload: Dict[str, Any] = {
         "metadata": dict(metadata or {}),
         "modules": {},
@@ -76,6 +80,8 @@ def save_sba_uas_extra_state(
     )
     _add_stateful(payload["trackers"], "san_synaptic_importance", san_synaptic_importance)
     if optimizers is not None:
+        # Optimizer state_dicts already own their tensor structure, so preserve
+        # them verbatim instead of trying to clone or normalize nested values.
         payload["optimizers"] = {
             name: optimizer_state
             for name, optimizer_state in optimizers.items()
@@ -115,4 +121,6 @@ def _clone_tensor_mapping(values: Mapping[str, torch.Tensor]) -> Dict[str, torch
 def _save_payload(path: Path, payload: Mapping[str, Any]) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    # Materialize the mapping so later caller mutations cannot alter the object
+    # that torch is serializing.
     torch.save(dict(payload), str(path))

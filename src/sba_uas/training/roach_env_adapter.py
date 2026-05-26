@@ -115,6 +115,8 @@ class RoachTransitionAdapter:
         action_tensor = _as_tensor(actions, self.observation_adapter.device).float()
         if action_tensor.dim() == 1:
             action_tensor = action_tensor.unsqueeze(0)
+        # Rewards and dones may arrive as scalars in single-env smoke tests or
+        # as vectors in Roach's vectorized rollout path.
         reward_values = _as_numpy_1d(rewards)
         done_values = _as_numpy_1d(dones).astype(np.bool_)
 
@@ -177,6 +179,8 @@ def transitions_to_tensor_batch(
     next_measurements = [item.next_measurement for item in items]
     measurement = None
     next_measurement = None
+    # Mixed presence would silently produce malformed Roach policy inputs, so
+    # fail before stacking instead of filling missing measurements.
     if any(value is not None for value in measurements):
         if any(value is None for value in measurements):
             raise ValueError("measurements must be all present or all None")

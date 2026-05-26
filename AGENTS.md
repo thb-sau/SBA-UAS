@@ -1,10 +1,10 @@
-# 仓库规则
+# Repository Rules
 
-本规则作用于整个 `sba-uas` 仓库。
+These rules apply to the entire `sba-uas` repository.
 
-1. `carla-roach/` 是只读上游基线目录。任何复现、适配、实验、脚本、配置或文档改动都不得修改、删除、移动、重命名或格式化 `carla-roach/` 下的任何文件。
-2. SBA-UAS 的新增代码放在 `src/sba_uas/`；新增配置放在 `configs/sba_uas/`；新增脚本放在 `scripts/`；新增说明放在 `docs/` 或根目录文档中。
-3. SBA-UAS 的 policy 必须与 CARLA-Roach 的 policy 使用完全相同的模型结构和 checkpoint 合同。默认 policy 来源固定为 `carla-roach/agents/rl_birdview/models/ppo_policy.py` 中的 `PpoPolicy`，并使用与 `carla-roach/config/agent/ppo/policy/xtma_beta.yaml` 一致的初始化参数。
-4. 不得为了实现 SBA-UAS 而修改 Actor/policy 网络结构。论文中的 SAN、Gated Critic、BNN 环境模型、Familiar Experience Buffer、Reward-Parameter Correlation 和参数稳定化机制只能作为 Critic 侧或训练侧扩展实现。
-5. 如果需要复用 Roach policy 或检查 checkpoint 兼容性，应通过 `src/sba_uas/compat/roach_policy.py` 或独立脚本把 `carla-roach/` 加入 `PYTHONPATH`，不得把 Roach 源码复制后改写成新的 policy。
-6. CARLA-Roach 的训练和评测入口依赖 Linux CARLA 包、`CarlaUE4.sh`、`killall` 和 Linux Python egg。Windows 原生环境只用于代码编辑、文档整理和轻量静态检查；实际 CARLA 训练/评测应在 Linux/WSL2/Ubuntu 或 Linux 服务器上执行。
+1. `carla-roach/` is a read-only upstream baseline. Do not modify, delete, move, rename, reformat, or generate experiment/configuration/documentation changes inside `carla-roach/`.
+2. New SBA-UAS code belongs in `src/sba_uas/`; new configuration belongs in `configs/sba_uas/`; new scripts belong in `scripts/`; new documentation belongs in `docs/` or in root-level project documents.
+3. The SBA-UAS policy must use the same model structure and checkpoint contract as CARLA-Roach. The default policy source is `PpoPolicy` from `carla-roach/agents/rl_birdview/models/ppo_policy.py`, initialized with parameters matching `carla-roach/config/agent/ppo/policy/xtma_beta.yaml`.
+4. Do not change the Actor/policy network structure for SBA-UAS. Paper components such as SAN, Gated Critic, BNN environment modeling, Familiar Experience Buffer, Reward-Parameter Correlation, and parameter stabilization must be implemented only as Critic-side or training-side extensions.
+5. When reusing the Roach policy or checking checkpoint compatibility, import Roach through `src/sba_uas/compat/roach_policy.py` or through standalone scripts that add `carla-roach/` to `PYTHONPATH`. Do not copy and rewrite Roach source code into a new policy implementation.
+6. CARLA-Roach training and evaluation depend on a Linux CARLA package, `CarlaUE4.sh`, `killall`, and the Linux Python egg. Native Windows should be used only for code editing, documentation, and lightweight static checks. Real CARLA training and evaluation should run on Linux, WSL2/Ubuntu, or a Linux server.

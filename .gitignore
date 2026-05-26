@@ -4,6 +4,7 @@ __pycache__/
 *.pyo
 .pytest_cache/
 .mypy_cache/
+*.egg-info/
 
 # Local IDE/runtime files
 .vscode/
@@ -23,6 +24,7 @@ videos/
 # Large local assets
 checkpoints/*
 !checkpoints/.gitkeep
+!checkpoints/ckpt_sba_uas_agent.pth
 datasets/*
 !datasets/.gitkeep
 

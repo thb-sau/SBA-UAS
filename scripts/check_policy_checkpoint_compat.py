@@ -31,6 +31,8 @@ def main():
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parents[1]
+    # Import the local compatibility package first, then expose the read-only
+    # Roach tree exactly as the training/evaluation scripts do.
     sys.path.insert(0, str(root / "src"))
     sys.path.insert(0, str(root / "carla-roach"))
 

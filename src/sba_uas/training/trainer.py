@@ -121,6 +121,8 @@ class RoachCompatibleSBAUASTrainer:
         self._last_obs = None
         self.last_train_metrics: Dict[str, float] = {}
 
+        # Roach exposes BEV, measurement, and action dimensions through Gym
+        # spaces. Infer them once so the sidecar stays independent of Roach code.
         bev_shape, measurement_dim, action_dim = _infer_roach_shapes(env)
         self.environment_model = environment_model or BayesianBEVEnvironmentModel(
             bev_shape=bev_shape,
@@ -155,6 +157,8 @@ class RoachCompatibleSBAUASTrainer:
         self.reference_critic = reference_critic or ReferenceNetwork.from_model(self.critic)
         self.reference_san.to(self.device)
         self.reference_critic.to(self.device)
+        # ReferenceNetwork freezes snapshots by default; SBA-UAS updates these
+        # copies on D-only familiar data, so their parameters must be trainable.
         self.reference_san.unfreeze()
         self.reference_critic.unfreeze()
 
@@ -216,6 +220,8 @@ class RoachCompatibleSBAUASTrainer:
 
         while self.num_timesteps < total_timesteps:
             collected = self.collect_roach_rollout(n_steps=1)
+            # The environment model first needs enough annotated transitions for
+            # shifted-VAS scores and buffer migration to be meaningful.
             if len(self.standard_buffer) >= self.config.warmup_transitions:
                 for _ in range(self.config.updates_per_env_step):
                     self.last_train_metrics = self.train_step()
@@ -248,6 +254,8 @@ class RoachCompatibleSBAUASTrainer:
         collected = 0
         self.policy.eval()
         for _ in range(n_steps):
+            # Actions always come from the upstream policy; SBA-UAS only observes
+            # and annotates the resulting transition.
             actions = self._policy_actions(
                 self._last_obs,
                 deterministic=self.config.deterministic_rollout,
@@ -304,6 +312,8 @@ class RoachCompatibleSBAUASTrainer:
     def update_reference_networks(self) -> Dict[str, float]:
         """Train reference Critic/SAN on familiar buffer ``D`` only."""
 
+        # Reference networks represent stable old-domain behavior, so they only
+        # learn from transitions that the uncertainty filter marked as familiar.
         transitions = self._sample_from_buffer(
             list(self.familiar_buffer),
             self.config.reference_batch_size,
@@ -329,6 +339,8 @@ class RoachCompatibleSBAUASTrainer:
         self._clip_gradients(self.reference_san.model)
         self.reference_san_optimizer.step()
 
+        # Bootstrap targets use the unchanged Roach policy for the next action,
+        # matching the sidecar constraint that Actor structure is untouched.
         next_actions = self._policy_actions_for_batch(batch, next_state=True)
         with torch.no_grad():
             next_gates, _ = self.reference_san.model(next_latent, batch.next_measurement)
@@ -368,6 +380,8 @@ class RoachCompatibleSBAUASTrainer:
     def update_main_networks(self) -> Dict[str, float]:
         """Update SAN and Critic from standard buffer ``B``."""
 
+        # Main SAN/Critic updates follow recent experience from B, while
+        # parameter stabilization pulls protected parameters toward D references.
         transitions = self._sample_from_buffer(
             list(self.standard_buffer),
             self.config.batch_size,
@@ -462,6 +476,8 @@ class RoachCompatibleSBAUASTrainer:
     ) -> None:
         """Save Roach policy checkpoint plus separate SBA-UAS extra state."""
 
+        # Evaluation only needs the Roach policy file. The second file captures
+        # train-only state that would break the upstream checkpoint contract.
         save_roach_policy_checkpoint(
             path=policy_checkpoint_path,
             policy=self.policy,
@@ -512,6 +528,8 @@ class RoachCompatibleSBAUASTrainer:
                 rng=self.rng,
             )
         if "standard" in buffers:
+            # Restore D before B because the standard buffer owns the migration
+            # link to the familiar buffer.
             self.standard_buffer = StandardReplayBuffer.from_state_dict(
                 buffers["standard"],
                 familiar_buffer=self.familiar_buffer,
@@ -536,6 +554,8 @@ class RoachCompatibleSBAUASTrainer:
         self,
         batch: TransitionTensorBatch,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
+        # The BEV model has its own objective. SAN/Critic training consumes
+        # detached latents so their gradients do not update the environment model.
         self.environment_model.eval()
         with torch.no_grad():
             latent = self.environment_model.encode(batch.state)
@@ -569,6 +589,8 @@ class RoachCompatibleSBAUASTrainer:
                     clip_action=clip_action,
                 )
             except TypeError:
+                # Lightweight tests may pass a minimal fake policy that accepts
+                # only the observation argument.
                 result = self.policy.forward(obs)
         if isinstance(result, tuple):
             actions = result[0]

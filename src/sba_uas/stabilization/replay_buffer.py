@@ -63,6 +63,8 @@ class FamiliarExperienceBuffer:
             self._items.append(transition)
             return None
 
+        # D is meant to preserve the most familiar old samples, so the least
+        # familiar member of D is the one removed under capacity pressure.
         evict_index = self._choose_extreme_index(minimum=False)
         evicted = self._items[evict_index]
         self._items[evict_index] = transition
@@ -129,6 +131,8 @@ class StandardReplayBuffer:
             self._items.append(transition)
             return BufferAddResult(added_to_standard=transition)
 
+        # B tracks recency. When it fills, the lowest-uncertainty old transition
+        # graduates to D and the newest transition stays available for training.
         migrate_index = self._choose_extreme_index(minimum=True)
         migrated = self._items[migrate_index]
         self._items[migrate_index] = transition

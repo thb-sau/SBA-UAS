@@ -25,6 +25,8 @@ from sba_uas.training.trainer import (
 )
 
 
+# Roach imports assume their repository root is already importable. Do this
+# before importing the upstream PPO class, without modifying carla-roach files.
 ensure_roach_on_path()
 
 from agents.rl_birdview.models.ppo import PPO  # noqa: E402
@@ -92,6 +94,8 @@ class SBAUASPPO(PPO):
         start_num_timesteps: int = 0,
         sba_uas: Optional[Mapping[str, Any]] = None,
     ) -> None:
+        # Let upstream PPO construct the policy, rollout buffer, and training
+        # machinery first; the sidecar is attached only after Roach is intact.
         super().__init__(
             policy=policy,
             env=env,
@@ -125,6 +129,8 @@ class SBAUASPPO(PPO):
             return
 
         trainer_config.discount = gamma
+        # Roach-compatible saves must include the constructor values that Roach
+        # needs to reload the policy checkpoint.
         trainer_config.train_init_kwargs = self._get_init_kwargs()
         self.sba_uas_trainer = RoachCompatibleSBAUASTrainer(
             policy=self.policy,
@@ -228,6 +234,8 @@ class SBAUASPPO(PPO):
         if trainer is None:
             return
 
+        # Roach stores observations by rollout time index. The next observation
+        # is the following slot, except for the last step where PPO keeps _last_obs.
         for step_index in range(rollout_buffer.buffer_size):
             obs = {
                 key: value[step_index]
@@ -291,6 +299,8 @@ class SBAUASPPO(PPO):
         if trainer is None:
             return
 
+        # Replacing values is the only path by which SBA-UAS influences Actor
+        # updates; the Actor network and policy checkpoint remain upstream Roach.
         for step_index in range(self.buffer.buffer_size):
             obs = {
                 key: value[step_index]
@@ -347,6 +357,8 @@ class SBAUASPPO(PPO):
 def _parse_sba_uas_config(
     values: Mapping[str, Any],
 ) -> Tuple[SBAUASPPOOptions, SBAUASTrainerConfig, Dict[str, Any]]:
+    # Keep Hydra's flat dictionary ergonomic while still routing each key to the
+    # object that owns it.
     option_values: Dict[str, Any] = {}
     trainer_values: Dict[str, Any] = {}
     model_kwargs: Dict[str, Any] = {}
@@ -397,6 +409,8 @@ def _resolve_extra_checkpoint_path(
 def _resolve_resume_extra_checkpoint_path(
     options: SBAUASPPOOptions,
 ) -> Optional[Path]:
+    # Sequential runs set the previous town's sidecar checkpoint through the
+    # environment so shell scripts can chain stages without rewriting YAML.
     env_path = os.environ.get("SBA_UAS_RESUME_EXTRA_STATE")
     if env_path:
         return Path(env_path)

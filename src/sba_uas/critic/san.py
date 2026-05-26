@@ -73,6 +73,8 @@ class SimilarityBasedActivationNetwork(nn.Module):
 
     def _initialize_gate_head(self) -> None:
         nn.init.normal_(self.gate_logits.weight, mean=0.0, std=1.0e-3)
+        # Bias the initial sigmoid gates toward the target activation budget so
+        # early Critic updates do not begin from an all-open or all-closed mask.
         bias = math.log(self.target_active_ratio / (1.0 - self.target_active_ratio))
         nn.init.constant_(self.gate_logits.bias, bias)
 

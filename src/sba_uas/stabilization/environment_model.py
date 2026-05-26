@@ -66,6 +66,8 @@ class RoachBEVEncoder(nn.Module):
         self.bev_shape = (channels, height, width)
         self.latent_dim = latent_dim
         self.base_channels = base_channels
+        # Five stride-2 stages downsample Roach's 192x192 BEV to 6x6. Keeping
+        # this explicit makes shape mismatches fail early in _validate_bev_shape.
         self.feature_shape = (
             base_channels * 8,
             height // 32,
@@ -333,6 +335,8 @@ class BayesianBEVEnvironmentModel(nn.Module):
         latent = self.encoder(state_target)
         next_latent = self.encoder(next_state_target)
 
+        # Both current and next states are reconstructed so the latent space
+        # remains useful for present-state gating and transition prediction.
         state_reconstruction = self.decode(latent)
         next_state_reconstruction = self.decode(next_latent)
         state_reconstruction_loss = F.mse_loss(state_reconstruction, state_target)
@@ -343,6 +347,8 @@ class BayesianBEVEnvironmentModel(nn.Module):
 
         latent_prediction_losses = []
         observation_prediction_losses = []
+        # Average MC transition losses because each Bayesian sample is a valid
+        # posterior draw, not a separate supervised target.
         for _ in range(prediction_samples):
             predicted_next_latent = self.predict_next_latent(
                 latent=latent,
@@ -435,6 +441,8 @@ class BayesianBEVEnvironmentModel(nn.Module):
             )
         normalized = birdview.float()
         if normalized.detach().max().item() > 1.0:
+            # Roach masks are commonly uint8 images; tests may already pass
+            # normalized floats.
             normalized = normalized / 255.0
         return normalized.clamp(0.0, 1.0)
 

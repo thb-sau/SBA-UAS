@@ -52,6 +52,8 @@ class BayesianLinear(nn.Module):
 
     @staticmethod
     def _sample(mu: torch.Tensor, rho: torch.Tensor) -> torch.Tensor:
+        # Softplus keeps posterior std positive while allowing unconstrained rho
+        # parameters during optimization.
         sigma = F.softplus(rho)
         return mu + sigma * torch.randn_like(mu)
 

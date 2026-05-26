@@ -57,6 +57,8 @@ class GatedQNetwork(nn.Module):
 
         for layer_index, layer in enumerate(self.hidden_layers):
             hidden = F.relu(layer(hidden))
+            # SAN gates are shaped [batch, layer, unit], so each Critic layer can
+            # reuse a different sparse sub-network for the same transition.
             hidden = hidden * gates[:, layer_index, :]
         return self.output_layer(hidden).squeeze(-1)
 

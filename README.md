@@ -1,64 +1,46 @@
 # SBA-UAS Reproduction for CARLA-Roach
 
-SBA-UAS 是面向自动驾驶持续强化学习的论文复现项目，对应 `paper/main.pdf` 中的 **Similarity-Based Activation and Uncertainty-Aware Stabilization** 方法。项目以 `carla-roach/` 为只读上游基线，在不修改 Roach Actor/policy 网络结构和 checkpoint 合同的前提下，实现 Critic 侧的持续学习扩展，并提供训练、评估、兼容性检查和轻量单测入口。
+This repository contains a reproduction-oriented implementation of **Similarity-Based Activation and Uncertainty-Aware Stabilization (SBA-UAS)** for continual reinforcement learning in autonomous driving. The project uses `carla-roach/` as a read-only upstream baseline and adds Critic-side continual-learning components without changing the Roach Actor/policy architecture or checkpoint contract.
 
-## 核心特性
-
-- **Roach policy 完全兼容**：默认 Actor 使用 `carla-roach/agents/rl_birdview/models/ppo_policy.py` 中的 `PpoPolicy`，初始化参数与 Roach `xtma_beta.yaml` 保持一致。
-- **Critic-side SBA-UAS**：新增 SAN、Gated Double Critic、Bayesian BEV Environment Model、shifted VAS、Familiar Experience Buffer、Reference Network 和 Reward-Parameter Correlation。
-- **Roach PPO 可训练接入**：`SBAUASPPO` 继承 Roach PPO，Actor 仍按 PPO 更新；SBA-UAS sidecar 同步训练 Critic 侧模块，warm-up 后可用 gated Double-Q 估计参与 PPO advantage。
-- **checkpoint 分离保存**：Roach policy checkpoint 只保存 `policy_state_dict`、`policy_init_kwargs` 和 `train_init_kwargs`；SBA-UAS extra state 单独保存为 `*_sba_uas_extra_state.pth`。
-- **可运行脚本**：提供 smoke、标准联合采样、顺序持续学习训练入口，以及 Roach benchmark 评估入口。
-
-## 仓库结构
+## Repository Layout
 
 ```text
 .
-├── carla-roach/                  # 只读 Roach 上游基线，不要修改
-├── configs/sba_uas/              # SBA-UAS 训练、评估和 policy 合同配置
-├── docs/                         # 复现计划与当前状态
-├── environment/                  # 环境安装补充说明
-├── paper/main.pdf                # 目标论文
-├── scripts/                      # 训练、评估、checkpoint 兼容性检查脚本
+├── carla-roach/                  # Read-only Roach upstream baseline
+├── configs/sba_uas/              # SBA-UAS training, evaluation, and policy contract configs
+├── docs/                         # Reproduction plan and implementation status
+├── environment/                  # Environment setup notes and extra dependencies
+├── scripts/                      # Training, evaluation, and checkpoint compatibility scripts
 ├── src/sba_uas/
-│   ├── compat/                   # Roach policy 只读导入与兼容层
-│   ├── critic/                   # SAN、Gated Critic 和 Critic losses
-│   ├── stabilization/            # BNN、VAS、buffer、reference、importance
-│   └── training/                 # Roach PPO sidecar、adapter、checkpoint、metrics
-└── tests/                        # 不依赖 CARLA server 的轻量单测
+│   ├── compat/                   # Read-only Roach policy import and compatibility helpers
+│   ├── critic/                   # SAN, Gated Critic, and Critic losses
+│   ├── stabilization/            # BNN, shifted VAS, buffers, reference networks, importance
+│   └── training/                 # Roach PPO sidecar, adapters, checkpointing, metrics
+└── tests/                        # Lightweight tests that do not require a CARLA server
 ```
 
-## 复现边界
+`carla-roach/` is intentionally kept unchanged. SBA-UAS additions live in this repository's own package, configuration, script, and documentation paths.
 
-`carla-roach/` 是只读目录。任何 SBA-UAS 代码、配置、脚本和文档改动都应放在本项目自己的目录中：
+## Environment
 
-- 新增代码：`src/sba_uas/`
-- 新增配置：`configs/sba_uas/`
-- 新增脚本：`scripts/`
-- 新增说明：`docs/` 或根目录文档
+Training and evaluation should run on Linux, WSL2 Ubuntu, or a Linux GPU server. Native Windows is suitable only for editing, documentation, and lightweight checks.
 
-默认实现只在 Critic/训练侧加入持续学习机制，不修改 Roach Actor/policy 网络结构。
+Lightweight tests have been verified with:
 
-## 环境要求
+- conda environment: `driveadapter`
+- Python: 3.7
+- PyTorch: 1.13.1
 
-推荐在 Linux、WSL2 Ubuntu 或 Linux GPU 服务器中运行训练和评估。Windows 原生环境只建议用于代码编辑和轻量静态检查。
+CARLA/Roach runtime dependencies:
 
-已验证轻量测试环境：
+- Linux CARLA package with `CarlaUE4.sh`
+- CARLA Python egg matching the CARLA version
+- Roach BEV map `.h5` files
+- Bash, `killall`, Linux paths, and a GPU runtime environment
 
-- conda 环境：`driveadapter`
-- Python：3.7
-- PyTorch：1.13.1
+## Installation
 
-CARLA/Roach 运行依赖：
-
-- Linux CARLA 包，包含 `CarlaUE4.sh`
-- 与 CARLA 版本匹配的 Python egg
-- Roach 需要的 BEV map h5 文件
-- Bash、`killall`、Linux 路径和 GPU 运行环境
-
-## 安装
-
-如果你已经有 `driveadapter` 环境，直接激活并安装本项目：
+If the `driveadapter` environment already exists:
 
 ```bash
 conda activate driveadapter
@@ -66,7 +48,7 @@ cd /home/wsl/pythonWork/sba-uas
 pip install -e .
 ```
 
-如果需要从 Roach 环境重新创建：
+To recreate the environment from Roach:
 
 ```bash
 conda env create -f carla-roach/environment.yml --name driveadapter
@@ -75,39 +57,39 @@ conda env update -n driveadapter -f environment/sba_uas_extra_linux.yml
 pip install -e .
 ```
 
-安装 CARLA Python egg。以 CARLA 0.9.11 为例：
+Install the CARLA Python egg for the CARLA version in use. Example for CARLA 0.9.11:
 
 ```bash
 export CARLA_ROOT=/path/to/carla-0.9.11
 easy_install ${CARLA_ROOT}/PythonAPI/carla/dist/carla-0.9.11-py3.7-linux-x86_64.egg
 ```
 
-Roach RL 训练链路有时使用 CARLA 0.9.10.x 更稳定；论文指标复现以 CARLA 0.9.11 为目标。请在实验记录中固定并注明 CARLA 版本。
+Roach RL training is often more stable with CARLA 0.9.10.x, while the paper-level target is CARLA 0.9.11. Record the exact CARLA version in every experiment.
 
-## 训练前检查
+## Pre-Training Checks
 
-运行轻量单测：
+Run lightweight tests:
 
 ```bash
 conda run -n driveadapter pytest -q
 ```
 
-检查 policy 配置是否仍与 Roach `xtma_beta.yaml` 一致：
+Check that the SBA-UAS policy configuration still matches Roach `xtma_beta.yaml`:
 
 ```bash
 conda run -n driveadapter python scripts/check_policy_checkpoint_compat.py
 ```
 
-检查已有 policy checkpoint：
+Check an existing policy checkpoint:
 
 ```bash
 conda run -n driveadapter python scripts/check_policy_checkpoint_compat.py \
   carla-roach/checkpoints/roach_rl/ckpt/ckpt_11833344.pth
 ```
 
-## 开始训练
+## Training
 
-所有训练脚本默认使用 `driveadapter`，并要求 `CARLA_ROOT` 指向 Linux CARLA 安装目录。
+Training scripts default to the `driveadapter` environment and require `CARLA_ROOT` to point to a Linux CARLA installation.
 
 ```bash
 conda activate driveadapter
@@ -115,15 +97,15 @@ export CARLA_ROOT=/path/to/carla-0.9.11
 export WANDB_MODE=offline
 ```
 
-### 1. 单 Town smoke run
+### 1. Single-Town Smoke Run
 
-先运行最小配置，确认 CARLA server、Roach wrapper、SBA-UAS sidecar、checkpoint 保存都能跑通：
+Use the smallest configuration first to confirm that the CARLA server, Roach wrapper, SBA-UAS sidecar, and checkpoint saving path work end to end.
 
 ```bash
 scripts/run_train_sba_uas.sh smoke
 ```
 
-可用环境变量缩短或调整 smoke：
+Optional smoke-run overrides:
 
 ```bash
 SBA_UAS_TOTAL_TIMESTEPS=8192 \
@@ -131,9 +113,9 @@ SBA_UAS_SEED=2021 \
 scripts/run_train_sba_uas.sh smoke
 ```
 
-### 2. 六地图标准联合采样训练
+### 2. Six-Town Joint Training
 
-对应论文 Table I 的 standard RL agent-sampling protocol：
+This corresponds to the paper's standard RL agent-sampling protocol.
 
 ```bash
 SBA_UAS_TOTAL_TIMESTEPS=100000000 \
@@ -141,11 +123,11 @@ SBA_UAS_SEED=2021 \
 scripts/run_train_sba_uas.sh standard
 ```
 
-该模式使用 Roach `endless_all`，覆盖 Town01 到 Town06。
+This mode uses Roach `endless_all` and covers Town01 through Town06.
 
-### 3. 顺序持续学习训练
+### 3. Sequential Continual-Learning Training
 
-对应论文 Town01 -> Town06 continual-learning protocol。每个地图阶段结束后，脚本会从上一阶段的 Roach policy checkpoint 继续，并通过 `SBA_UAS_RESUME_EXTRA_STATE` 自动恢复配套的 SBA-UAS extra state。
+This corresponds to the Town01 to Town06 continual-learning protocol. After each town stage, the next stage resumes from the previous Roach policy checkpoint and restores the matching SBA-UAS extra state through `SBA_UAS_RESUME_EXTRA_STATE`.
 
 ```bash
 SBA_UAS_STEPS_PER_MAP=2000000 \
@@ -153,7 +135,7 @@ SBA_UAS_SEED=2021 \
 scripts/run_train_sba_uas.sh sequential
 ```
 
-调试时可以使用 reduced protocol：
+For debugging, use a reduced protocol:
 
 ```bash
 SBA_UAS_STEPS_PER_MAP=20000 \
@@ -161,45 +143,45 @@ SBA_UAS_RUN_ROOT=outputs/sba_uas_seq_debug \
 scripts/run_train_sba_uas.sh sequential
 ```
 
-### 4. 传递 Roach/Hydra override
+### 4. Roach/Hydra Overrides
 
-训练脚本会把额外参数原样传给 Roach Hydra。例如：
+Additional arguments are passed through to Roach Hydra:
 
 ```bash
 scripts/run_train_sba_uas.sh smoke kill_running=false dummy=true
 ```
 
-## checkpoint 说明
+## Checkpoints
 
-Roach policy checkpoint：
+Roach policy checkpoints:
 
 ```text
 ckpt_*.pth
 ```
 
-只包含 Roach 可加载的 policy 合同：
+These contain only the Roach-loadable policy contract:
 
 - `policy_state_dict`
 - `policy_init_kwargs`
 - `train_init_kwargs`
 
-SBA-UAS extra checkpoint：
+SBA-UAS extra checkpoints:
 
 ```text
 ckpt_*_sba_uas_extra_state.pth
 ```
 
-包含：
+These contain training-side state:
 
-- SAN / Gated Critic / Bayesian Environment Model
-- Standard Buffer / Familiar Experience Buffer
-- Reference Critic / Reference SAN
-- Reward-Parameter Correlation / SAN SI-style importance
-- optimizer state 和训练元数据
+- SAN, Gated Critic, and Bayesian Environment Model
+- Standard Buffer and Familiar Experience Buffer
+- Reference Critic and Reference SAN
+- Reward-Parameter Correlation and SAN SI-style importance
+- optimizer state and training metadata
 
-## 评估
+## Evaluation
 
-评估使用 Roach benchmark，只加载 Roach-compatible policy checkpoint；SBA-UAS extra state 是训练侧状态，不参与推理。
+Evaluation uses the Roach benchmark and loads only the Roach-compatible policy checkpoint. SBA-UAS extra state is training-side state and is not required for inference.
 
 ```bash
 conda activate driveadapter
@@ -209,50 +191,50 @@ export WANDB_MODE=offline
 scripts/run_benchmark_sba_uas.sh path/to/ckpt_*.pth
 ```
 
-选择测试 suite：
+Select a benchmark suite:
 
 ```bash
 SBA_UAS_TEST_SUITE=nocrash_dense \
 scripts/run_benchmark_sba_uas.sh path/to/ckpt_*.pth
 ```
 
-评估脚本会先运行 checkpoint 合同检查，再调用 `carla-roach/benchmark.py`。
+The evaluation script runs the checkpoint contract check before calling `carla-roach/benchmark.py`.
 
-## 论文级实验建议
+## Paper-Level Experiment Path
 
-建议按以下顺序推进：
+Recommended progression:
 
-1. `smoke`：Town01 小步数训练，确认真实 CARLA 采样、更新、保存、恢复。
-2. benchmark smoke：用 smoke 产物跑一次 `nocrash_dense` 或小 suite。
-3. reduced sequential：Town01 -> Town02，小步数，观察 `U_tilde_VAS`、buffer 迁移和 checkpoint 恢复。
-4. standard joint：Town01-Town06 联合采样，至少 3 seeds 验证趋势。
-5. full continual：Town01 -> Town06，每地图 2,000,000 steps，10 seeds。
-6. 消融与诊断：`-SAN`、`-PS`、Actor-side、Actor-Critic、t-SNE、activation ratio、`D_pi`、`C_Q`。
+1. `smoke`: run a small Town01 training job and confirm real CARLA sampling, updates, saving, and resume.
+2. benchmark smoke: evaluate a smoke-run output with `nocrash_dense` or another small suite.
+3. reduced sequential: run Town01 to Town02 with a small step count and inspect `U_tilde_VAS`, buffer migration, and checkpoint restore.
+4. standard joint: run Town01 through Town06 joint sampling, starting with at least 3 seeds for trend checks.
+5. full continual: run Town01 through Town06 with 2,000,000 steps per town and 10 seeds.
+6. ablations and diagnostics: `-SAN`, `-PS`, Actor-side, Actor-Critic, t-SNE, activation ratio, `D_pi`, and `C_Q`.
 
-当前代码已经实现默认 Critic-side SBA-UAS 训练闭环；Actor-side 和 Actor-Critic variants 仍需作为 Table IV 消融单独实现。
+The current code implements the default Critic-side SBA-UAS training loop. Actor-side and Actor-Critic variants remain separate ablation work.
 
-## 常见问题
+## Troubleshooting
 
-### 找不到 `CarlaUE4.sh`
+### Missing `CarlaUE4.sh`
 
-确认 `CARLA_ROOT` 指向 CARLA 根目录：
+Confirm that `CARLA_ROOT` points to the CARLA root directory:
 
 ```bash
 export CARLA_ROOT=/opt/carla-0.9.11
 ls ${CARLA_ROOT}/CarlaUE4.sh
 ```
 
-### 找不到 `carla` Python 包
+### Missing `carla` Python Package
 
-安装对应版本 Python egg：
+Install the matching Python egg:
 
 ```bash
 easy_install ${CARLA_ROOT}/PythonAPI/carla/dist/carla-0.9.11-py3.7-linux-x86_64.egg
 ```
 
-### BEV map h5 缺失
+### Missing BEV Map Files
 
-按 Roach 提示生成 birdview map 文件。通常命令形式为：
+Generate birdview map files using the Roach utility. The command usually has this shape:
 
 ```bash
 python -m carla_gym.utils.birdview_map \
@@ -261,33 +243,25 @@ python -m carla_gym.utils.birdview_map \
   --carla_sh_path ${CARLA_ROOT}/CarlaUE4.sh
 ```
 
-### 想确认 checkpoint 能否评估
+### Check Whether a Checkpoint Can Be Evaluated
 
 ```bash
 python scripts/check_policy_checkpoint_compat.py path/to/ckpt.pth
 ```
 
-如果当前环境已安装完整 CARLA/Roach 依赖，也可以加上 Roach load smoke：
+If the current environment has the full CARLA/Roach dependency stack, also run a Roach load smoke check:
 
 ```bash
 python scripts/check_policy_checkpoint_compat.py path/to/ckpt.pth --load-with-roach
 ```
 
-## 当前状态
+## Current Status
 
-不依赖 CARLA server 的轻量测试已通过：
+Lightweight tests that do not require a CARLA server have passed in the `driveadapter` environment:
 
 ```bash
 conda run -n driveadapter pytest -q
 # 41 passed
 ```
 
-真实论文数值仍需要在 CARLA 环境中运行：标准六地图联合采样、Town01 -> Town06 顺序流、10 seeds、消融实验和可视化统计。
-
-## 参考文档
-
-- 复现计划：`docs/reproduction_plan.md`
-- 当前状态：`docs/reproduction_status.md`
-- 训练模块说明：`src/sba_uas/training/README.md`
-- 稳定化模块说明：`src/sba_uas/stabilization/README.md`
-- policy 合同：`configs/sba_uas/policy_compatibility.yaml`
+Paper-level numbers still require real CARLA runs: six-town joint sampling, Town01 to Town06 sequential training, 10 seeds, ablations, and diagnostic visualizations.
