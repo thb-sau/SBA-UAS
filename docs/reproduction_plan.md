@@ -251,6 +251,7 @@ SBA-UAS 解决的是 task-agnostic continual reinforcement learning for autonomo
 落点：
 
 - `src/sba_uas/training/trainer.py`
+- `src/sba_uas/training/roach_ppo_sidecar.py`
 - `src/sba_uas/training/roach_env_adapter.py`
 - `src/sba_uas/training/checkpointing.py`
 - `scripts/run_train_sba_uas.sh`
@@ -268,11 +269,13 @@ SBA-UAS 解决的是 task-agnostic continual reinforcement learning for autonomo
    - BNN 计算 `u_vas`。
    - transition 进入双 buffer。
 4. 每个训练 step：
-   - 用 `B` 更新 Critic/SAN/Actor。
+   - Roach PPO 继续更新 Actor/policy。
+   - 用 `B` 更新 Critic/SAN。
    - 用 `B ∪ D` 更新环境模型。
    - 用 `D` 更新 reference Critic/SAN。
    - 更新 importance。
    - 将 parameter stabilization 加入 Critic/SAN loss。
+   - warm-up 后可用 SBA-UAS gated Double-Q 估计重写 PPO advantage，使 Critic 侧稳定化影响 Actor 更新但不改变 Actor 结构。
 5. checkpoint 拆分：
    - `policy.pth`：保持 Roach policy 可加载。
    - `sba_uas_extra_state.pth`：保存 Critic、SAN、BNN、buffers、reference networks、importance。

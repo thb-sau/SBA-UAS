@@ -4,6 +4,7 @@ SBA-UAS must keep its actor/policy checkpoint contract identical to Roach.
 This module only adjusts sys.path and re-exports the upstream classes.
 """
 
+from importlib import import_module
 from pathlib import Path
 import sys
 
@@ -21,11 +22,36 @@ def ensure_roach_on_path(repo_root=None):
     return roach_dir
 
 
-ensure_roach_on_path()
+_ROACH_EXPORTS = {
+    "BetaDistribution": "agents.rl_birdview.models.distributions:BetaDistribution",
+    "PpoPolicy": "agents.rl_birdview.models.ppo_policy:PpoPolicy",
+    "XtMaCNN": "agents.rl_birdview.models.torch_layers:XtMaCNN",
+}
 
-from agents.rl_birdview.models.distributions import BetaDistribution  # noqa: E402
-from agents.rl_birdview.models.ppo_policy import PpoPolicy  # noqa: E402
-from agents.rl_birdview.models.torch_layers import XtMaCNN  # noqa: E402
+
+def load_roach_attr(export_name, repo_root=None):
+    """Load one upstream Roach symbol after placing Roach on ``sys.path``."""
+
+    if export_name not in _ROACH_EXPORTS:
+        raise AttributeError("unknown Roach export '{}'".format(export_name))
+    ensure_roach_on_path(repo_root=repo_root)
+    module_name, attr_name = _ROACH_EXPORTS[export_name].split(":")
+    module = import_module(module_name)
+    return getattr(module, attr_name)
 
 
-__all__ = ["BetaDistribution", "PpoPolicy", "XtMaCNN", "ensure_roach_on_path"]
+def __getattr__(name):
+    if name in _ROACH_EXPORTS:
+        value = load_roach_attr(name)
+        globals()[name] = value
+        return value
+    raise AttributeError(name)
+
+
+__all__ = [
+    "BetaDistribution",
+    "PpoPolicy",
+    "XtMaCNN",
+    "ensure_roach_on_path",
+    "load_roach_attr",
+]

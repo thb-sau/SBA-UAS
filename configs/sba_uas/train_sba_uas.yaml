@@ -1,17 +1,26 @@
-# SBA-UAS training scaffold.
-# CARLA-Roach remains read-only; reuse its env, wrapper, reward, terminal, and policy contracts.
+# SBA-UAS training contract.
+# CARLA-Roach remains read-only; scripts pass these values to Roach Hydra as
+# overrides and keep all SBA-UAS state under src/sba_uas/.
 
 base_roach_config: carla-roach/config/train_rl.yaml
 policy_contract: configs/sba_uas/policy_compatibility.yaml
 
 runtime:
-  carla_version_recommended_for_rl: "0.9.10.1"
+  conda_env: driveadapter
+  carla_version_for_paper: "0.9.11"
+  carla_version_recommended_for_roach_smoke: "0.9.10.1"
   linux_required: true
   pythonpath:
     - src
     - carla-roach
+  wandb:
+    smoke_mode: offline
 
 sba_uas:
+  roach_hydra:
+    training_entry_point: sba_uas.training.roach_ppo_sidecar:SBAUASPPO
+    policy_group: agent/ppo/policy=xtma_beta
+    training_group: agent/ppo/training=ppo
   trainer:
     entry_point: sba_uas.training.trainer:RoachCompatibleSBAUASTrainer
     reproduction_mode: roach_compatible_sidecar
@@ -27,6 +36,12 @@ sba_uas:
     checkpoint:
       policy_path: checkpoints/policy.pth
       extra_state_path: checkpoints/sba_uas_extra_state.pth
+  roach_ppo_sidecar:
+    entry_point: sba_uas.training.roach_ppo_sidecar:SBAUASPPO
+    updates_per_ppo_train: 1
+    use_sba_critic_for_ppo_advantage: true
+    save_extra_state: true
+    extra_checkpoint_suffix: _sba_uas_extra_state
   actor_policy:
     source: carla-roach
     structure_must_match_roach: true
@@ -58,3 +73,49 @@ sba_uas:
     reward_parameter_correlation:
       enabled: true
       damping: 1.0e-8
+
+profiles:
+  smoke_single_town:
+    description: Minimal CARLA smoke run; use before any paper-scale run.
+    total_timesteps: 4096
+    roach:
+      dummy: true
+      train_map: Town01
+      num_zombie_vehicles: [0, 30]
+      num_zombie_walkers: [0, 60]
+      weather_group: dynamic_1.0
+      wb_project: sba_uas_smoke
+      wb_name: sba_uas_town01_smoke
+    sba_uas_overrides:
+      standard_buffer_capacity: 256
+      familiar_buffer_capacity: 256
+      batch_size: 8
+      environment_batch_size: 8
+      reference_batch_size: 4
+      warmup_transitions: 16
+      shifted_vas_samples: 2
+      environment_prediction_samples: 1
+      hidden_units: 64
+      n_layers: 2
+      san_feature_dim: 32
+      san_shared_hidden_units: 64
+      environment_base_channels: 4
+      environment_transition_hidden_dims: [64]
+      latent_dim: 32
+  paper_standard_joint:
+    description: Table I protocol, joint Town01-Town06 sampling.
+    train_envs: endless_all
+    total_timesteps: 100000000
+    seeds: [2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030]
+  paper_continual_sequence:
+    description: Table II/III and Fig. 4 protocol, no fresh old-map sampling after switch.
+    map_order: [Town01, Town02, Town03, Town04, Town05, Town06]
+    steps_per_map: 2000000
+    seeds: [2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030]
+  ablations:
+    variants:
+      - full_sba_uas
+      - actor_only
+      - actor_critic
+      - minus_san
+      - minus_parameter_stabilization

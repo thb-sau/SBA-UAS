@@ -19,9 +19,10 @@ def save_roach_policy_checkpoint(
     if not hasattr(policy, "get_init_kwargs"):
         raise TypeError("policy must expose get_init_kwargs()")
 
+    get_init_kwargs = getattr(policy, "get_init_kwargs")
     payload = {
         "policy_state_dict": policy.state_dict(),
-        "policy_init_kwargs": policy.get_init_kwargs(),
+        "policy_init_kwargs": get_init_kwargs(),
         "train_init_kwargs": dict(train_init_kwargs),
     }
     _save_payload(path, payload)

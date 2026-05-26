@@ -1,10 +1,15 @@
-# SBA-UAS benchmark scaffold.
+# SBA-UAS benchmark contract.
 
 base_roach_config: carla-roach/config/benchmark.yaml
 policy_contract: configs/sba_uas/policy_compatibility.yaml
 
 benchmark:
   carla_version: "0.9.11"
+  conda_env: driveadapter
+  inference_contract:
+    uses_roach_policy_only: true
+    sba_uas_extra_state_required_for_inference: false
+    note: SAN/Critic/BNN are training-side state; benchmark loads the Roach-compatible policy checkpoint.
   suites:
     - leaderboard_town01_to_town06
     - nocrash_dense
@@ -19,3 +24,20 @@ benchmark:
 checkpoint:
   policy_file_must_load_with_roach: true
   sba_uas_extra_state_file: checkpoints/sba_uas_extra_state.pth
+
+paper_tables:
+  table_i_standard_joint:
+    train_protocol: joint Town01-Town06 sampling
+    aggregate_metrics: [AP_DS, AP_RC, AP_IS]
+    seeds: 10
+  table_ii_continual_sequence:
+    train_protocol: Town01 -> Town02 -> Town03 -> Town04 -> Town05 -> Town06
+    aggregate_metrics: [AP_DS, AP_RC, AP_IS]
+    per_stage_evaluation: true
+    seeds: 10
+  table_iii_global_continual:
+    metrics: [AP, AF, FWT]
+    score_types: [DS, RC, IS]
+  table_iv_ablation_diagnostics:
+    variants: [full_sba_uas, actor_only, actor_critic, minus_san, minus_parameter_stabilization]
+    diagnostics: [old_domain_rollout_retention, actor_policy_drift, critic_gradient_alignment]
